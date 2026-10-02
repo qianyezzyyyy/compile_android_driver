@@ -1,76 +1,91 @@
-name: Android 12 / 5.10 GKI Kernel Driver Builder
+obj-m += lsdriver.o
 
-on:
-  workflow_dispatch:
-    inputs:
-      driver_name:
-        description: 'Driver Module Name (e.g., lsdriver.ko)'
-        required: true
-        default: 'lsdriver.ko'
-      target_arch:
-        description: 'Target Architecture (aarch64, x86_64, etc.)'
-        required: true
-        default: 'aarch64'
+lsdriver-y := lsdriver_main.o \
+              arm64_decode.o \
+              arm64_decode_branch.o \
+              arm64_decode_immediate.o \
+              arm64_decode_ldst.o \
+              arm64_decode_register.o \
+              arm64_decode_simd.o \
+              arm64_decode_sme.o \
+              arm64_decode_sve.o \
+              arm64_encode.o \
+              emulate_inst.o \
+              arm64_emulate_branch.o \
+              arm64_emulate_immediate.o \
+              arm64_emulate_ldst.o \
+              arm64_emulate_register.o \
+              arm64_emulate_simd.o
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# 主入口：lsdriver.c 编译为 lsdriver_main.o
+$(obj)/lsdriver_main.o: $(src)/lsdriver.c FORCE
+	$(call if_changed_dep,cc_o_c)
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+# O3 优化
+ccflags-y += -O3
 
-      # 关键改动 1：原 mv 只会搬顶层 .c/.h/Makefile，会漏掉 arm64_encode/ 等子目录
-      #             改成 cp -r ./code/. 保留完整目录结构
-      - name: Prepare kerneldriver directory
-        run: |
-          mkdir -p kerneldriver
-          cp -r ./code/. kerneldriver/
-          ls -R kerneldriver | head -50
+# Android 12 / 5.10 上先不启用模块级 full LTO，避免与内核 LTO=thin 冲突
+# ccflags-y += -flto
 
-      - name: Install repo tool
-        run: |
-          sudo curl -L https://storage.googleapis.com/git-repo-downloads/repo -o /usr/local/bin/repo
-          sudo chmod a+x /usr/local/bin/repo
+# Debug 开关
+# ccflags-y += -DDEBUG
 
-      - name: Sync Android 12 / 5.10 kernel
-        run: |
-          mkdir -p android-kernel && cd android-kernel
-          repo init -u https://android.googlesource.com/kernel/manifest \
-            -b common-android12-5.10
-          repo sync -j$(nproc) -c --no-tags --optimized-fetch --force-sync
+# Android 12 GKI 5.10 的 Clang(12/14) 对 +bf16/+i8mm 支持不完整，降到 armv8.5-a
+ccflags-y += -march=armv8.5-a+fp16+fp16fml+lse+rcpc+crc
 
-      - name: Copy driver into kernel tree
-        run: |
-          cd android-kernel
-          cp -r ../kerneldriver common/drivers/
+# 禁止优化器主动向量化
+ccflags-y += -fno-vectorize -fno-slp-vectorize
 
-      # 关键改动 2：删掉了 obj-y += kerneldriver/，改为只走 GKI modules 列表。
-      #             obj-y 会把驱动编成 built-in，不是 .ko
-      - name: Add module to GKI modules list (legacy)
-        run: |
-          cd android-kernel
-          echo "drivers/kerneldriver/${{ inputs.driver_name }}" \
-            >> common/android/gki_${{ inputs.target_arch }}_modules
-          echo "--- tail of gki_${{ inputs.target_arch }}_modules ---"
-          tail -5 common/android/gki_${{ inputs.target_arch }}_modules
+# 仅从显式使用 FP/SIMD 汇编的目标中移除 -mgeneral-regs-only
+CFLAGS_REMOVE_lsdriver_main.o += -mgeneral-regs-only
+CFLAGS_REMOVE_emulate_inst.o += -mgeneral-regs-only
+CFLAGS_REMOVE_arm64_emulate_ldst.o += -mgeneral-regs-only
+CFLAGS_REMOVE_arm64_emulate_simd.o += -mgeneral-regs-only
+CFLAGS_REMOVE_arm64_emulate_immediate.o += -mgeneral-regs-only
+CFLAGS_REMOVE_arm64_emulate_register.o += -mgeneral-regs-only
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential flex bison libssl-dev libelf-dev bc python-is-python3
+CFLAGS_lsdriver_main.o += -mno-implicit-float
+CFLAGS_emulate_inst.o += -mno-implicit-float
+CFLAGS_arm64_emulate_ldst.o += -mno-implicit-float
+CFLAGS_arm64_emulate_simd.o += -mno-implicit-float
+CFLAGS_arm64_emulate_immediate.o += -mno-implicit-float
+CFLAGS_arm64_emulate_register.o += -mno-implicit-float
 
-      # Android 12 / 5.10 走 legacy build 路径（build.sh + LTO=thin）
-      - name: Build kernel with driver
-        run: |
-          cd android-kernel
-          BUILD_CONFIG=common/build.config.gki.${{ inputs.target_arch }} \
-          LTO=thin \
-          build/build.sh -j$(nproc)
+# 警告不视为错误
+ccflags-y += -Wno-error
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: kernel-driver-${{ inputs.target_arch }}
-          path: android-kernel/out/android12-5.10/dist/**
-          if-no-files-found: warn
+# 现代 GNU C 方言
+ccflags-y += -std=gnu11
+
+# 关闭栈保护
+ccflags-y += -fno-stack-protector
+
+# 省略帧指针
+ccflags-y += -fomit-frame-pointer
+
+# 尾调用优化
+ccflags-y += -foptimize-sibling-calls
+
+# 注意：Android 12 GKI 5.10 启用了 BTI/PAC，绝不能加 -mbranch-protection=none
+# （原注释里描述的 CFI jump table / BTI panic 是 6.1+ 的坑，5.10 无 KCFI）
+#ccflags-y += -mbranch-protection=none
+
+# 关闭自动局部变量清零
+ccflags-y += -ftrivial-auto-var-init=uninitialized
+
+# 循环展开
+ccflags-y += -funroll-loops
+
+# 严格别名优化
+ccflags-y += -fstrict-aliasing
+
+# 放宽本模块栈帧上限
+ccflags-y += -Wframe-larger-than=4096
+
+# 关闭各类 sanitizer 插桩
+KASAN_SANITIZE := n
+UBSAN_SANITIZE := n
+KCSAN_SANITIZE := n
+KMSAN_SANITIZE := n
+GCOV_PROFILE := n
+KCOV_INSTRUMENT := n
