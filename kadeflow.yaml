@@ -6,7 +6,7 @@ project:
 kade:
   config_overrides:
     kernel:
-      flavor: "gki"                # gki | non_gki
+      flavor: "gki"                # 只跑 GKI
 
     gki:
       android_version: 14
@@ -25,23 +25,9 @@ kade:
         bazel:
           args: ["--config=fast"]
 
-    non_gki:
-      source:
-        type: "zip"                # repo | local | zip
-        zip_path: "${GITHUB_WORKSPACE}/kernel.zip"
-        zip_strip_root: true
-
-      build:
-        mode: "script"
-        script: "build.sh"
-        args: []
-        artifacts_dir: "out"
-
-
 # ABI control (optional but supported)
 abi:
   upstream_patch: true             # always recommended for CI
-  # one of the following (optional):
   symbols_file: "${GITHUB_WORKSPACE}/abi.symbols"
   # or inline list:
   # symbols:
@@ -50,14 +36,13 @@ abi:
   sort: false
   replace: false
 
-# Default CI flow: build + export (minimal, as you requested)
+# CI flow: GKI build + export
 flow:
   steps:
     - "kade prepare"
     - "kade deps"
     - "kade sync"
-    - "kade abi_upstream"
-    # abi step is injected automatically by runner if abi.symbols_file or abi.symbols provided
+    # abi_upstream 由 runner 自动注入（因为上面提供了 abi.symbols_file）
     - "kade build"
     - "kade export"
   post_commands: []                # users can add extra commands here, e.g. compile_commands/img unpack
