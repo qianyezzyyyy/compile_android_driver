@@ -4,8 +4,8 @@
 #include <asm/ptrace.h>
 #include <asm/sysreg.h>
 #include <linux/bits.h>
-#include "../arm64_reg.h"
-#include "../arm64_decode/arm64_decode.h"
+#include "arm64_reg.h"
+#include "arm64_decode.h"
 #include "arm64_emulate_hw_templates.h"
 
 enum emu_inst_result
