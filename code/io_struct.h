@@ -1,4 +1,3 @@
-﻿
 #ifndef IO_STRUCT_H
 #define IO_STRUCT_H
 #include <linux/vmalloc.h>
@@ -17,6 +16,19 @@
 #include <linux/types.h>
 #include <asm/ptrace.h>
 #include "arm64_reg.h"
+
+/*
+ * ABI 对齐强制为 8 字节。
+ *
+ * 原因：__uint128_t 在 aarch64 Clang 下默认按 16 字节对齐，
+ * 会把 struct bp_record / bp_point 的大小和对齐都拉大，
+ * 导致 struct break_point 里 coord_table 的偏移与用户态
+ * lsdriver.h 的假设不一致，破坏内核态/用户态共享的内存布局。
+ *
+ * 本文件里所有与用户态共享的结构体都必须放在这个 pack 区间内。
+ * 用户态那份 lsdriver.h 必须使用相同的 #pragma pack(push, 8)。
+ */
+#pragma pack(push, 8)
 
 #define TLS_THREAD_NAME_LEN 16
 struct env_params
@@ -384,5 +396,7 @@ struct request_obj
     // 环境参数信息
     struct env_params env_info;
 };
+
+#pragma pack(pop)
 
 #endif // IO_STRUCT_H
