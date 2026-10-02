@@ -13,7 +13,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 拷贝 code/ 下全部内容（包括子目录/所有 .c .h Makefile）
       - name: Prepare kerneldriver directory
         run: |
           set -eux
@@ -21,6 +20,21 @@ jobs:
           cp -r ./code/. kerneldriver/
           echo "--- kerneldriver/ ---"
           ls -R kerneldriver | head -80
+
+      # 只做 include 路径修正: 去掉不存在的子目录前缀 (arm64_encode/ 等)
+      - name: Patch driver include paths
+        run: |
+          set -eux
+          cd kerneldriver
+
+          find . \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 sed -i \
+            -e 's|"arm64_encode/|"|g' \
+            -e 's|"arm64_decode/|"|g' \
+            -e 's|"arm64_emulate/|"|g'
+
+          echo "=== residual subdir includes (should be none) ==="
+          grep -rn '#include[[:space:]]*"[^"]*\(arm64_encode\|arm64_decode\|arm64_emulate\)/' \
+            --include='*.c' --include='*.h' . || echo "none"
 
       - name: Install repo tool
         run: |
@@ -43,8 +57,6 @@ jobs:
           cp -r ../kerneldriver common/drivers/
           ls -R common/drivers/kerneldriver | head -80
 
-      # 关键：把 kerneldriver 挂到 Kbuild，让它被作为模块构建
-      # 注意用的是 obj-m（模块），不是 obj-y（built-in）
       - name: Hook kerneldriver into Kbuild
         run: |
           set -eux
@@ -53,7 +65,6 @@ jobs:
           echo "--- tail of common/drivers/Makefile ---"
           tail -5 common/drivers/Makefile
 
-      # 声明本模块出现在 GKI 模块清单中（用于 dist 阶段校验/裁剪）
       - name: Add module to GKI modules list (legacy)
         run: |
           set -eux
