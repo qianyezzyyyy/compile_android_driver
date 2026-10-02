@@ -18,7 +18,7 @@
 #include <asm/pgtable.h>
 #include <asm/pgtable-prot.h>
 #include <asm/tlbflush.h>
-#include "arm64_encode/arm64_encode.h"
+#include "arm64_encode.h"
 #include "arm64_reg.h"
 #include "lsdriver_log.h"
 
