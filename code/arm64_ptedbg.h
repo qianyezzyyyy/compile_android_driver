@@ -24,7 +24,7 @@
 #include "export_fun.h"
 #include "inline_hook_frame.h"
 #include "io_struct.h"
-#include "arm64_emulate/emulate_inst.h"
+#include "emulate_inst.h"
 #include "virtual_memory_rw.h"
 
 #ifndef ARCH_VM_PKEY_FLAGS
