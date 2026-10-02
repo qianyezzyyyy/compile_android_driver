@@ -21,13 +21,12 @@ jobs:
           echo "--- kerneldriver/ ---"
           ls -R kerneldriver | head -80
 
-      # ---- 一次修完所有头文件路径和缺失文件 ----
       - name: Patch driver include paths
         run: |
           set -eux
           cd kerneldriver
 
-          # 1) 干掉所有 arm64_*/ 和 ../arm64_*/ 前缀
+          # 1) 干掉所有 ../arm64_*/ 和 arm64_*/ 前缀（带子目录的）
           find . \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 sed -i \
             -e 's|"\.\./arm64_encode/|"|g' \
             -e 's|"\.\./arm64_decode/|"|g' \
@@ -36,12 +35,22 @@ jobs:
             -e 's|"arm64_decode/|"|g' \
             -e 's|"arm64_emulate/|"|g'
 
+          # 2) 新增: 干掉裸的 "../xxx.h" 前缀
+          #    匹配 "../文件名.h"（文件名里不含 /），转成 "文件名.h"
+          find . \( -name '*.c' -o -name '*.h' \) -print0 | xargs -0 sed -i \
+            -e 's|"\.\./\([^/"]*\)"|"\1"|g'
+
+          # 3) 检查残留的带子目录前缀（应为空）
           echo "=== residual subdir includes (should be none) ==="
           grep -rn '#include[[:space:]]*"[^"]*arm64_\(encode\|decode\|emulate\)/' \
             --include='*.c' --include='*.h' . || echo "none"
 
-          # 2) 补齐 arm64_ptedbg.h
-          # 仓库里只有 arm64_ptedbg3.h，但 break_point.h 引用的是无后缀版本
+          # 4) 新增: 检查所有残留的 ../ include（应为空）
+          echo "=== residual ../ includes (should be none) ==="
+          grep -rn '#include[[:space:]]*"\.\./' \
+            --include='*.c' --include='*.h' . || echo "none"
+
+          # 5) 补齐 arm64_ptedbg.h（如果还没有）
           if [ ! -f arm64_ptedbg.h ]; then
             if [ -f arm64_ptedbg3.h ]; then
               echo ">>> cp arm64_ptedbg3.h -> arm64_ptedbg.h"
@@ -56,7 +65,7 @@ jobs:
           fi
           ls -la arm64_ptedbg*.h || true
 
-          # 3) 一次性列出所有被引用但仓库里没有的头文件
+          # 6) 列出所有被引用但仓库里没有的头文件
           echo "=== missing headers (referenced but not present) ==="
           grep -rhoP '#include[[:space:]]+"\K[^"]+\.h' \
             --include='*.c' --include='*.h' . \
