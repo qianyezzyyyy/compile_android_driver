@@ -110,6 +110,25 @@ jobs:
           echo "drivers/kerneldriver/lsdriver.ko" >> common/android/gki_aarch64_modules
           cat common/android/gki_aarch64_modules
 
+      - name: Disable MODVERSIONS for universal module compatibility
+        run: |
+          set -eux
+          cd android-kernel
+          # Find and patch the arm64 GKI defconfig
+          for f in arch/arm64/configs/gki_defconfig arch/arm64/configs/gki_defconfig.aarch64 arch/arm64/configs/android12-5.10.gki.aarch64-defconfig; do
+            if [ -f "$f" ]; then
+              echo "Patching $f"
+              if grep -q "^CONFIG_MODVERSIONS=" "$f"; then
+                sed -i "s/^CONFIG_MODVERSIONS=.*/CONFIG_MODVERSIONS=n/" "$f"
+              else
+                echo "CONFIG_MODVERSIONS=n" >> "$f"
+              fi
+              break
+            fi
+          done
+          # Also add a fragment for good measure
+          echo "CONFIG_MODVERSIONS=n" >> common/configs/gki_aarch64_fragments.config
+
       - name: Install dependencies
         run: |
           set -eux
