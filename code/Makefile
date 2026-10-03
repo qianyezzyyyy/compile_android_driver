@@ -45,11 +45,11 @@ CFLAGS_REMOVE_arm64_emulate_register.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_simd.o += -mgeneral-regs-only
 
 # ---- 针对 arm64_emulate_simd.o 的特殊处理 ----
-# 1) 该文件使用 usdot 内联汇编（i8mm 扩展），单独为它开启 i8mm。
-#    只影响这一个文件，不会让整个模块都要求 CPU 支持 i8mm。
-CFLAGS_arm64_emulate_simd.o += -march=armv8.5-a+i8mm
+# 1) 该文件同时使用 usdot（i8mm）、fmaxnm/fmla/fmlal（fp16/fp16fml），
+#    需要把 i8mm 追加到完整的扩展列表，不能只写 +i8mm，否则会覆盖全局的 fp16/fp16fml。
+CFLAGS_arm64_emulate_simd.o += -march=armv8.5-a+fp16+fp16fml+lse+rcpc+crc+i8mm
 
-# 2) 该文件若参与 ThinLTO，LLVM 后端处理 usdot 时会崩溃，
+# 2) 该文件若参与 ThinLTO，LLVM 后端处理内联汇编时会崩溃，
 #    因此对它单独禁用 LTO；同时必须一并禁用 CFI，否则会出现
 #    "invalid argument '-fsanitize=cfi' only allowed with '-flto'"。
 CFLAGS_REMOVE_arm64_emulate_simd.o += -flto=thin
