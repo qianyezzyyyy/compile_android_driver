@@ -40,10 +40,23 @@ ccflags-y += -fno-vectorize -fno-slp-vectorize
 CFLAGS_REMOVE_lsdriver_main.o += -mgeneral-regs-only
 CFLAGS_REMOVE_emulate_inst.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_ldst.o += -mgeneral-regs-only
-CFLAGS_REMOVE_arm64_emulate_simd.o += -mgeneral-regs-only
-CFLAGS_REMOVE_arm64_emulate_simd.o += -flto=thin
 CFLAGS_REMOVE_arm64_emulate_immediate.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_register.o += -mgeneral-regs-only
+CFLAGS_REMOVE_arm64_emulate_simd.o += -mgeneral-regs-only
+
+# ---- 针对 arm64_emulate_simd.o 的特殊处理 ----
+# 1) 该文件使用 usdot 内联汇编（i8mm 扩展），需要单独开启 i8mm
+CFLAGS_arm64_emulate_simd.o += -march=armv8.5-a+i8mm
+
+# 2) 该文件在 ThinLTO 后端处理 usdot 会导致 LLVM 崩溃，
+#    因此对它禁用 LTO 与 CFI。
+#    注意：Android12/5.10 中不一定有 $(CC_FLAGS_LTO)，所以直接写明具体标志，
+#    并用 -fno-lto / -fno-sanitize=cfi 做双保险，避免出现
+#    "invalid argument '-fsanitize=cfi' only allowed with '-flto'" 的错误。
+CFLAGS_REMOVE_arm64_emulate_simd.o += -flto=thin
+CFLAGS_REMOVE_arm64_emulate_simd.o += -fsanitize=cfi
+CFLAGS_arm64_emulate_simd.o       += -fno-lto -fno-sanitize=cfi
+# ------------------------------------------------
 
 CFLAGS_lsdriver_main.o += -mno-implicit-float
 CFLAGS_emulate_inst.o += -mno-implicit-float
