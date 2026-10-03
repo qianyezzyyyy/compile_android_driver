@@ -873,11 +873,7 @@ static int ptebp_handle_mprotect(struct pt_regs *hook_regs)
         }
     }
 
-    if (mmap_write_lock_killable(current->mm))
-    {
-        hook_regs->regs[0] = -EINTR;
-        return 1;
-    }
+    mmap_write_lock(current->mm);
 
     // hook 安装在全局 syscall 符号上；拿到 mmap 锁后再次确认目标 mm，避免停止或换目标期间误接管其他进程。
     if (!g_ptebp_info || g_ptebp_mm != current->mm || g_ptebp_stopping)
