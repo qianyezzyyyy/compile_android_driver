@@ -124,6 +124,20 @@ jobs:
           LTO=thin \
           build/build.sh -j$(nproc)
 
+      - name: Copy .ko to dist
+        if: always()
+        run: |
+          set -eux
+          mkdir -p android-kernel/out/android12-5.10/dist/
+          if [ -f "android-kernel/out/android12-5.10/drivers/kerneldriver/lsdriver.ko" ]; then
+            cp -v android-kernel/out/android12-5.10/drivers/kerneldriver/lsdriver.ko \
+                  android-kernel/out/android12-5.10/dist/
+            echo "LSDriver .ko copied to dist"
+          else
+            echo "WARNING: lsdriver.ko not found in expected location"
+            find android-kernel/out/android12-5.10 -name "lsdriver.ko" 2>/dev/null || true
+          fi
+
       - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
