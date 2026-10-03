@@ -41,6 +41,7 @@ CFLAGS_REMOVE_lsdriver_main.o += -mgeneral-regs-only
 CFLAGS_REMOVE_emulate_inst.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_ldst.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_simd.o += -mgeneral-regs-only
+CFLAGS_REMOVE_arm64_emulate_simd.o += -flto=thin
 CFLAGS_REMOVE_arm64_emulate_immediate.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_register.o += -mgeneral-regs-only
 
