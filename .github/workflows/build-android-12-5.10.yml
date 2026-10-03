@@ -129,8 +129,8 @@ jobs:
         run: |
           set -eux
           mkdir -p android-kernel/out/android12-5.10/dist/
-          if [ -f "android-kernel/out/android12-5.10/drivers/kerneldriver/lsdriver.ko" ]; then
-            cp -v android-kernel/out/android12-5.10/drivers/kerneldriver/lsdriver.ko \
+          if [ -f "android-kernel/out/android12-5.10/common/drivers/kerneldriver/lsdriver.ko" ]; then
+            cp -v android-kernel/out/android12-5.10/common/drivers/kerneldriver/lsdriver.ko \
                   android-kernel/out/android12-5.10/dist/
             echo "LSDriver .ko copied to dist"
           else
