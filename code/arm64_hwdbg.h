@@ -502,7 +502,7 @@ static void clear_hwbp_regs_on_cpu(void *data)
     }
 }
 
-static void __attribute__((used, __noinline__)) ret_work_finish_task_switch(void)
+__attribute__((visibility("default"))) void ret_work_finish_task_switch_hwbp(void)
 {
     struct break_point *bp_info = g_bp_info;
 
@@ -519,10 +519,10 @@ static void __attribute__((used, __noinline__)) ret_work_finish_task_switch(void
 }
 
 // 返回地址hook 跳板
-__attribute__((naked, used)) void ret_trampoline_finish_task_switch(void)
+__attribute__((naked, used, visibility("default"))) void ret_trampoline_finish_task_switch_hwbp(void)
 {
     asm volatile("str x0, [sp, #8]\n"
-                 "bl ret_work_finish_task_switch\n"
+                 "bl ret_work_finish_task_switch_hwbp\n"
                  "ldp x16, x0, [sp], #304\n"
                  "ret x16\n");
 }
@@ -533,7 +533,7 @@ static int work_trampoline_finish_task_switch(struct pt_regs *hook_regs)
     if (!g_bp_info) return 0;
 
     *(unsigned long *)(hook_regs->sp = (unsigned long)hook_frame_metadata(hook_regs)) = hook_regs->regs[30];
-    hook_regs->regs[30] = (unsigned long)ret_trampoline_finish_task_switch;
+    hook_regs->regs[30] = (unsigned long)ret_trampoline_finish_task_switch_hwbp;
 
     return 0;
 }
@@ -698,8 +698,6 @@ static int start_task_run_monitor(struct break_point *bp_info)
     if (g_bp_info)
     {
         g_bp_info = bp_info;
-        /* 方案B: 起监控时清空坐标表，避免上一次会话的残留 */
-        __builtin_memset(&bp_info->coord_table, 0, sizeof(bp_info->coord_table));
         return 0;
     }
 
@@ -714,9 +712,6 @@ static int start_task_run_monitor(struct break_point *bp_info)
 
     // 传递上下文给全局指针，让异常处理和断点写入都能互相传递配置信息
     g_bp_info = bp_info;
-
-    /* 方案B: 起监控时清空坐标表，避免上一次会话的残留 */
-    __builtin_memset(&bp_info->coord_table, 0, sizeof(bp_info->coord_table));
 
     // 统一安装异常 hook 和 finish_task_switch return hook。
     ret = inline_hook_install(g_hwbp_hooks);

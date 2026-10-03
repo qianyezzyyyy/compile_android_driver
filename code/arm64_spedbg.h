@@ -169,7 +169,7 @@ static int work_trampoline_spe_irq(struct pt_regs *hook_regs)
 }
 
 // 调度切换返回处理：目标任务切入时装载 SPE，切出时关闭 SPE
-static void __attribute__((used, __noinline__)) ret_work_finish_task_switch(void)
+__attribute__((visibility("default"))) void ret_work_finish_task_switch_spe(void)
 {
     struct break_point *bp_info = g_bp_info;
 
@@ -184,10 +184,10 @@ static void __attribute__((used, __noinline__)) ret_work_finish_task_switch(void
 }
 
 // finish_task_switch 返回跳板
-__attribute__((naked, used)) void ret_trampoline_finish_task_switch(void)
+__attribute__((naked, used, visibility("default"))) void ret_trampoline_finish_task_switch_spe(void)
 {
     asm volatile("str x0, [sp, #8]\n"
-                 "bl ret_work_finish_task_switch\n"
+                 "bl ret_work_finish_task_switch_spe\n"
                  "ldp x16, x0, [sp], #304\n"
                  "ret x16\n");
 }
@@ -197,7 +197,7 @@ static int work_trampoline_finish_task_switch(struct pt_regs *hook_regs)
     if (!g_bp_info) return 0;
 
     *(unsigned long *)(hook_regs->sp = (unsigned long)hook_frame_metadata(hook_regs)) = hook_regs->regs[30];
-    hook_regs->regs[30] = (unsigned long)ret_trampoline_finish_task_switch;
+    hook_regs->regs[30] = (unsigned long)ret_trampoline_finish_task_switch_spe;
 
     return 0;
 }

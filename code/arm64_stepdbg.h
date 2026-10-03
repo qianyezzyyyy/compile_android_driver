@@ -156,8 +156,8 @@ out_unlock:
     return touched_count;
 }
 
-static void __attribute__((used, __noinline__)) stepbp_finish_syscall_trace_exit(struct stepbp_return_frame *frame);
-__attribute__((naked, used)) void ret_trampoline_stepbp_syscall_trace_exit(void)
+__attribute__((visibility("default"))) void stepbp_finish_syscall_trace_exit(struct stepbp_return_frame *frame);
+__attribute__((naked, used, visibility("default"))) void ret_trampoline_stepbp_syscall_trace_exit(void)
 {
     asm volatile("mov x0, sp\n"
                  "bl stepbp_finish_syscall_trace_exit\n"
@@ -165,7 +165,7 @@ __attribute__((naked, used)) void ret_trampoline_stepbp_syscall_trace_exit(void)
                  "ret x16\n");
 }
 
-static void __attribute__((used, __noinline__)) stepbp_finish_syscall_trace_exit(struct stepbp_return_frame *frame)
+__attribute__((visibility("default"))) void stepbp_finish_syscall_trace_exit(struct stepbp_return_frame *frame)
 {
     unsigned long flags;
     struct break_point *info;
@@ -246,8 +246,8 @@ static int work_trampoline_stepbp_switch(struct pt_regs *hook_regs)
     return 0;
 }
 
-static int __attribute__((used, __noinline__)) stepbp_finish_call_step_hook(int native_result, struct stepbp_return_frame *frame);
-__attribute__((naked, used)) void ret_trampoline_stepbp_call_step_hook(void)
+__attribute__((visibility("default"))) int stepbp_finish_call_step_hook(int native_result, struct stepbp_return_frame *frame);
+__attribute__((naked, used, visibility("default"))) void ret_trampoline_stepbp_call_step_hook(void)
 {
     asm volatile("mov x1, sp\n"
                  "bl stepbp_finish_call_step_hook\n"
@@ -255,7 +255,7 @@ __attribute__((naked, used)) void ret_trampoline_stepbp_call_step_hook(void)
                  "ret x16\n");
 }
 
-static int __attribute__((used, __noinline__)) stepbp_finish_call_step_hook(int native_result, struct stepbp_return_frame *frame)
+__attribute__((visibility("default"))) int stepbp_finish_call_step_hook(int native_result, struct stepbp_return_frame *frame)
 {
     int result = native_result;
     unsigned long flags;
