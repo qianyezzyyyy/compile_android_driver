@@ -45,9 +45,11 @@ CFLAGS_REMOVE_arm64_emulate_register.o += -mgeneral-regs-only
 CFLAGS_REMOVE_arm64_emulate_simd.o += -mgeneral-regs-only
 
 # ---- 针对 arm64_emulate_simd.o 的特殊处理 ----
-# 1) 该文件同时使用 usdot（i8mm）、fmaxnm/fmla/fmlal（fp16/fp16fml），
-#    需要把 i8mm 追加到完整的扩展列表，不能只写 +i8mm，否则会覆盖全局的 fp16/fp16fml。
-CFLAGS_arm64_emulate_simd.o += -march=armv8.5-a+fp16+fp16fml+lse+rcpc+crc+i8mm
+# 1) 该文件同时使用 i8mm（usdot）和 bf16（bfdot/bfmlalb/bfmlalt/bfmmla）指令，
+#    以及 fp16/fp16fml（fmaxnm/fmla/fmlal 等）。
+#    armv8.6-a 已经默认包含 i8mm、bf16、fp16、fp16fml、lse、rcpc、crc，
+#    用 armv8.6-a 一次性覆盖所有扩展，避免遗漏任何一个。
+CFLAGS_arm64_emulate_simd.o += -march=armv8.6-a+fp16+fp16fml+lse+rcpc+crc
 
 # 2) 该文件若参与 ThinLTO，LLVM 后端处理内联汇编时会崩溃，
 #    因此对它单独禁用 LTO；同时必须一并禁用 CFI，否则会出现
@@ -80,7 +82,6 @@ ccflags-y += -fomit-frame-pointer
 ccflags-y += -foptimize-sibling-calls
 
 # 注意：Android 12 GKI 5.10 启用了 BTI/PAC，绝不能加 -mbranch-protection=none
-# （原注释里描述的 CFI jump table / BTI panic 是 6.1+ 的坑，5.10 无 KCFI）
 #ccflags-y += -mbranch-protection=none
 
 # 关闭自动局部变量清零
