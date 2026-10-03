@@ -112,22 +112,35 @@ jobs:
 
       - name: Disable MODVERSIONS for universal module compatibility
         run: |
-          set -eux
+          set -e
           cd android-kernel
-          # Find and patch the arm64 GKI defconfig
-          for f in arch/arm64/configs/gki_defconfig arch/arm64/configs/gki_defconfig.aarch64 arch/arm64/configs/android12-5.10.gki.aarch64-defconfig; do
-            if [ -f "$f" ]; then
-              echo "Patching $f"
-              if grep -q "^CONFIG_MODVERSIONS=" "$f"; then
-                sed -i "s/^CONFIG_MODVERSIONS=.*/CONFIG_MODVERSIONS=n/" "$f"
-              else
-                echo "CONFIG_MODVERSIONS=n" >> "$f"
-              fi
-              break
+          echo "Searching for defconfig containing CONFIG_MODVERSIONS..."
+          # Find all defconfig files and patch the one with MODVERSIONS
+          FOUND=0
+          for f in $(find . -name "*defconfig*" -path "*/configs/*" 2>/dev/null); do
+            if grep -q "CONFIG_MODVERSIONS=" "$f" 2>/dev/null; then
+              echo "Patching: $f"
+              sed -i "s/CONFIG_MODVERSIONS=.*/CONFIG_MODVERSIONS=n/" "$f"
+              FOUND=1
             fi
           done
-          # Also add a fragment for good measure
-          echo "CONFIG_MODVERSIONS=n" >> common/configs/gki_aarch64_fragments.config
+          if [ "$FOUND" -eq 0 ]; then
+            echo "No defconfig with MODVERSIONS found - checking build config..."
+            # Try to find it in build config files
+            for f in $(find . -name "*.aarch64" -o -name "*gki*" 2>/dev/null | grep -i "config"); do
+              if grep -q "CONFIG_MODVERSIONS" "$f" 2>/dev/null; then
+                echo "Patching build config: $f"
+                sed -i "s/CONFIG_MODVERSIONS=.*/CONFIG_MODVERSIONS=n/" "$f"
+                FOUND=1
+                break
+              fi
+            done
+          fi
+          if [ "$FOUND" -eq 0 ]; then
+            echo "WARNING: Could not find MODVERSIONS setting - module may not be universally loadable"
+          else
+            echo "MODVERSIONS disabled successfully"
+          fi
 
       - name: Install dependencies
         run: |
