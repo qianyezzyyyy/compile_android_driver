@@ -110,38 +110,6 @@ jobs:
           echo "drivers/kerneldriver/lsdriver.ko" >> common/android/gki_aarch64_modules
           cat common/android/gki_aarch64_modules
 
-      - name: Disable MODVERSIONS for universal module compatibility
-        run: |
-          set -e
-          cd android-kernel
-          echo "Searching for defconfig containing CONFIG_MODVERSIONS..."
-          # Find all defconfig files and patch the one with MODVERSIONS
-          FOUND=0
-          for f in $(find . -name "*defconfig*" -path "*/configs/*" 2>/dev/null); do
-            if grep -q "CONFIG_MODVERSIONS=" "$f" 2>/dev/null; then
-              echo "Patching: $f"
-              sed -i "s/CONFIG_MODVERSIONS=.*/CONFIG_MODVERSIONS=n/" "$f"
-              FOUND=1
-            fi
-          done
-          if [ "$FOUND" -eq 0 ]; then
-            echo "No defconfig with MODVERSIONS found - checking build config..."
-            # Try to find it in build config files
-            for f in $(find . -name "*.aarch64" -o -name "*gki*" 2>/dev/null | grep -i "config"); do
-              if grep -q "CONFIG_MODVERSIONS" "$f" 2>/dev/null; then
-                echo "Patching build config: $f"
-                sed -i "s/CONFIG_MODVERSIONS=.*/CONFIG_MODVERSIONS=n/" "$f"
-                FOUND=1
-                break
-              fi
-            done
-          fi
-          if [ "$FOUND" -eq 0 ]; then
-            echo "WARNING: Could not find MODVERSIONS setting - module may not be universally loadable"
-          else
-            echo "MODVERSIONS disabled successfully"
-          fi
-
       - name: Install dependencies
         run: |
           set -eux
